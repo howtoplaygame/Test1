@@ -1,7 +1,10 @@
 from flask import Flask, render_template, request, jsonify
 import re
+import os
 
 app = Flask(__name__)
+# 设置最大文件大小为1MB
+app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
 
 def parse_config(config_text):
     """解析Aruba配置文件"""
@@ -294,17 +297,36 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'config_file' not in request.files:
-        return jsonify({'error': '没有上传文件'})
-        
-    file = request.files['config_file']
-    if file.filename == '':
-        return jsonify({'error': '未选择文件'})
-        
-    if file:
-        content = file.read().decode('utf-8')
-        config_structure = parse_config(content)
-        return render_template('result.html', config=config_structure)
+    content = None
+    
+    # 处理文件上传
+    if 'config_file' in request.files:
+        file = request.files['config_file']
+        if file.filename != '':
+            # 检查文件大小
+            file.seek(0, os.SEEK_END)
+            size = file.tell()
+            file.seek(0)
+            
+            if size > 1024 * 1024:  # 1MB = 1024 * 1024 bytes
+                return jsonify({'error': '文件大小不能超过1MB'})
+            
+            try:
+                content = file.read().decode('utf-8')
+            except UnicodeDecodeError:
+                return jsonify({'error': '不支持的文件格式，请上传文本文件'})
+    
+    # 处理粘贴的文本
+    elif 'config_text' in request.form:
+        content = request.form['config_text']
+        if not content.strip():
+            return jsonify({'error': '配置内容不能为空'})
+    
+    if not content:
+        return jsonify({'error': '请上传文件或粘贴配置内容'})
+    
+    config_structure = parse_config(content)
+    return render_template('result.html', config=config_structure)
 
 if __name__ == '__main__':
     app.run(debug=True) 
