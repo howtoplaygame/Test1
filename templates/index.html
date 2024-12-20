@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
-    <title>Aruba配置分析</title>
+    <title>Aruba配置分析工具</title>
     <style>
         .container {
             max-width: 800px;
@@ -46,13 +46,19 @@
             margin: 20px 0;
             color: #666;
         }
+        .counter {
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+        }
     </style>
     <script>
         function validateFileSize(input) {
             if (input.files && input.files[0]) {
                 if (input.files[0].size > 1024 * 1024) {  // 1MB = 1024 * 1024 bytes
-                    alert('文件大小不能超过1MB');
-                    input.value = '';  // 清空选择
+                    alert('File size cannot exceed 1MB');
+                    input.value = '';  // Clear selection
                     return false;
                 }
             }
@@ -65,22 +71,26 @@
         <h1>Aruba配置分析工具</h1>
         
         <div class="upload-section">
-            <div class="section-title">方式一：上传配置文件</div>
+            <div class="section-title">Option 1: Upload Configuration File</div>
             <form action="/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="config_file" onchange="validateFileSize(this)">
-                <div class="file-hint">支持所有文本文件，大小不超过1MB</div>
-                <button type="submit" class="submit-btn">上传并分析</button>
+                <div class="file-hint">Supports all text files, max size 1MB</div>
+                <button type="submit" class="submit-btn">Upload and Analyze</button>
             </form>
         </div>
 
-        <div class="or-divider">- 或者 -</div>
+        <div class="or-divider">- OR -</div>
 
         <div class="paste-section">
-            <div class="section-title">方式二：粘贴配置内容</div>
+            <div class="section-title">Option 2: Paste Configuration Content</div>
             <form action="/upload" method="post">
-                <textarea name="config_text" placeholder="在此粘贴配置文件内容..."></textarea>
-                <button type="submit" class="submit-btn">分析配置</button>
+                <textarea name="config_text" placeholder="Paste your configuration content here..."></textarea>
+                <button type="submit" class="submit-btn">Analyze Configuration</button>
             </form>
+        </div>
+
+        <div class="counter">
+            File processing times: {{ counter }}
         </div>
     </div>
 </body>

@@ -1,10 +1,17 @@
 from flask import Flask, render_template, request, jsonify
 import re
 import os
+import time
+from datetime import datetime
 
 app = Flask(__name__)
 # 设置最大文件大小为1MB
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
+
+# 确保data目录存在
+data_dir = os.path.join(os.path.dirname(__file__), 'data')
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
 
 def parse_config(config_text):
     """解析Aruba配置文件"""
@@ -291,39 +298,80 @@ def parse_config(config_text):
     
     return config_dict
 
+def get_counter():
+    """获取处理次数"""
+    counter_file = os.path.join('templates', 'counters')
+    try:
+        with open(counter_file, 'r') as f:
+            return int(f.read().strip() or '0')
+    except (FileNotFoundError, ValueError):
+        return 0
+
+def increment_counter():
+    """增加处理次数并保存"""
+    counter_file = os.path.join('templates', 'counters')
+    try:
+        counter = get_counter() + 1
+        with open(counter_file, 'w') as f:
+            f.write(str(counter))
+        return counter
+    except Exception:
+        return 0
+
+def save_content(content):
+    """保存内容到data目录，使用时间戳作为文件名"""
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"{timestamp}.log"
+    filepath = os.path.join(data_dir, filename)
+    
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return filename
+    except Exception as e:
+        print(f"Error saving file: {str(e)}")
+        return None
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    counter = get_counter()
+    return render_template('index.html', counter=counter)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     content = None
     
-    # 处理文件上传
+    # Handle file upload
     if 'config_file' in request.files:
         file = request.files['config_file']
         if file.filename != '':
-            # 检查文件大小
+            # Check file size
             file.seek(0, os.SEEK_END)
             size = file.tell()
             file.seek(0)
             
             if size > 1024 * 1024:  # 1MB = 1024 * 1024 bytes
-                return jsonify({'error': '文件大小不能超过1MB'})
+                return jsonify({'error': 'File size cannot exceed 1MB'})
             
             try:
                 content = file.read().decode('utf-8')
             except UnicodeDecodeError:
-                return jsonify({'error': '不支持的文件格式，请上传文本文件'})
+                return jsonify({'error': 'Unsupported file format, please upload a text file'})
     
-    # 处理粘贴的文本
+    # Handle pasted text
     elif 'config_text' in request.form:
         content = request.form['config_text']
         if not content.strip():
-            return jsonify({'error': '配置内容不能为空'})
+            return jsonify({'error': 'Configuration content cannot be empty'})
     
     if not content:
-        return jsonify({'error': '请上传文件或粘贴配置内容'})
+        return jsonify({'error': 'Please upload a file or paste configuration content'})
+    
+    # 保存内容到文件
+    save_content(content)
+    
+    # 增加处理次数
+    increment_counter()
     
     config_structure = parse_config(content)
     return render_template('result.html', config=config_structure)
