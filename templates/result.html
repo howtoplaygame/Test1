@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>配置分析结果</title>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .ap-group {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .profile-type {
+            margin: 10px 0 10px 20px;
+        }
+        .profile {
+            margin: 5px 0 5px 40px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .command {
+            margin-left: 20px;
+            color: #666;
+            font-family: monospace;
+        }
+        .profile-name {
+            color: #2c3e50;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        .profile-name::before {
+            content: '▼';
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform 0.2s;
+        }
+        .profile-name.collapsed::before {
+            transform: rotate(-90deg);
+        }
+        .profile-content {
+            transition: max-height 0.3s ease-out;
+            max-height: 1000px;
+            overflow: hidden;
+        }
+        .profile-content.collapsed {
+            max-height: 0;
+        }
+        .profile-type-name {
+            color: #34495e;
+            font-weight: bold;
+        }
+        .ap-group-name {
+            color: #16a085;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ap-group-name::before {
+            content: '▼';
+            display: inline-block;
+            margin-right: 5px;
+            transition: transform 0.2s;
+        }
+        .ap-group-name.collapsed::before {
+            transform: rotate(-90deg);
+        }
+        .ap-group-content {
+            transition: max-height 0.3s ease-out;
+            max-height: 2000px;
+            overflow: hidden;
+        }
+        .ap-group-content.collapsed {
+            max-height: 0;
+        }
+        .sub-profile {
+            margin-left: 20px;
+        }
+    </style>
+    <script>
+        function toggleProfile(element) {
+            const content = element.nextElementSibling;
+            element.classList.toggle('collapsed');
+            content.classList.toggle('collapsed');
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>Aruba AC配置分析结果</h2>
+        {% for ap_group, data in config.items() %}
+        <div class="ap-group">
+            <div class="ap-group-name collapsed" onclick="toggleProfile(this)">AP Group: {{ ap_group }}</div>
+            <div class="ap-group-content collapsed">
+                {% for profile_type, profiles in data.profiles.items() %}
+                <div class="profile-type">
+                    <div class="profile-type-name">{{ profile_type }}:</div>
+                    {% for profile_name, profile_data in profiles.items() %}
+                    <div class="profile">
+                        <div class="profile-name collapsed" onclick="toggleProfile(this)">{{ profile_name }}</div>
+                        <div class="profile-content collapsed">
+                            {% if profile_type == 'virtual-ap' %}
+                                {% if profile_data.ssid_profile %}
+                                <div class="sub-profile">
+                                    <div class="profile-name collapsed" onclick="toggleProfile(this)">ssid-profile: {{ profile_data.ssid_profile.name }}</div>
+                                    <div class="profile-content collapsed">
+                                        {% for command in profile_data.ssid_profile.commands %}
+                                        <div class="command">{{ command }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% if profile_data.aaa_profile %}
+                                <div class="sub-profile">
+                                    <div class="profile-name collapsed" onclick="toggleProfile(this)">aaa-profile: {{ profile_data.aaa_profile.name }}</div>
+                                    <div class="profile-content collapsed">
+                                        {% for command in profile_data.aaa_profile.commands %}
+                                        <div class="command">{{ command }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                                
+                                {% for command in profile_data.commands %}
+                                <div class="command">{{ command }}</div>
+                                {% endfor %}
+                            {% else %}
+                                {% for command in profile_data.commands %}
+                                <div class="command">{{ command }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+
+                {% if data.commands %}
+                <div class="profile-type">
+                    <div class="profile-type-name">其他配置:</div>
+                    {% for command in data.commands %}
+                    <div class="command">{{ command }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html> 
