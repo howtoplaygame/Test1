@@ -345,14 +345,6 @@ def upload_file():
     if 'config_file' in request.files:
         file = request.files['config_file']
         if file.filename != '':
-            # Check file size
-            file.seek(0, os.SEEK_END)
-            size = file.tell()
-            file.seek(0)
-            
-            if size > 1024 * 1024:  # 1MB = 1024 * 1024 bytes
-                return jsonify({'error': 'File size cannot exceed 1MB'})
-            
             try:
                 content = file.read().decode('utf-8')
             except UnicodeDecodeError:
@@ -367,14 +359,19 @@ def upload_file():
     if not content:
         return jsonify({'error': 'Please upload a file or paste configuration content'})
     
-    # 保存内容到文件
-    save_content(content)
+    # 读取默认配置文件
+    try:
+        with open(os.path.join('templates', '812default.log'), 'r', encoding='utf-8') as f:
+            default_content = f.read()
+    except Exception as e:
+        return jsonify({'error': f'Error reading default configuration: {str(e)}'})
     
-    # 增加处理次数
-    increment_counter()
-    
+    # 解析配置并渲染结果
     config_structure = parse_config(content)
-    return render_template('result.html', config=config_structure)
+    return render_template('result.html', 
+                         config=config_structure,
+                         uploaded_content=content,
+                         default_content=default_content)
 
 if __name__ == '__main__':
     app.run(debug=True) 

@@ -71,7 +71,7 @@
         <h1>Aruba配置分析工具</h1>
         
         <div class="upload-section">
-            <div class="section-title">Option 1: Upload Configuration File</div>
+            <div class="section-title">Option 1: Upload Configuration File(show running result)</div>
             <form action="/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="config_file" onchange="validateFileSize(this)">
                 <div class="file-hint">Supports all text files, max size 1MB</div>
@@ -82,7 +82,7 @@
         <div class="or-divider">- OR -</div>
 
         <div class="paste-section">
-            <div class="section-title">Option 2: Paste Configuration Content</div>
+            <div class="section-title">Option 2: Paste Configuration Content(show running result)</div>
             <form action="/upload" method="post">
                 <textarea name="config_text" placeholder="Paste your configuration content here..."></textarea>
                 <button type="submit" class="submit-btn">Analyze Configuration</button>
