@@ -3,10 +3,27 @@ import re
 import os
 import time
 from datetime import datetime
+import logging
 
 app = Flask(__name__)
 # 设置最大文件大小为1MB
 app.config['MAX_CONTENT_LENGTH'] = 1 * 1024 * 1024
+
+# 创建日志目录
+log_dir = os.path.join(os.path.dirname(__file__), 'log')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, 'app.log'), encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # 确保data目录存在
 data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -303,8 +320,11 @@ def get_counter():
     counter_file = os.path.join('templates', 'counters')
     try:
         with open(counter_file, 'r') as f:
-            return int(f.read().strip() or '0')
-    except (FileNotFoundError, ValueError):
+            counter = int(f.read().strip() or '0')
+            logger.info(f'Counter read: {counter}')
+            return counter
+    except (FileNotFoundError, ValueError) as e:
+        logger.warning(f'Error reading counter: {str(e)}')
         return 0
 
 def increment_counter():
@@ -314,8 +334,10 @@ def increment_counter():
         counter = get_counter() + 1
         with open(counter_file, 'w') as f:
             f.write(str(counter))
+        logger.info(f'Counter incremented to: {counter}')
         return counter
-    except Exception:
+    except Exception as e:
+        logger.error(f'Error incrementing counter: {str(e)}')
         return 0
 
 def save_content(content):
@@ -327,10 +349,66 @@ def save_content(content):
     try:
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content)
+        logger.info(f'Content saved to file: {filename}')
         return filename
     except Exception as e:
-        print(f"Error saving file: {str(e)}")
+        logger.error(f'Error saving content to file: {str(e)}')
         return None
+
+def analyze_config(content):
+    """分析配置并生成AI提示"""
+    analysis_results = []
+    
+    # 规范化字符串比较：移除多余空白字符，统一换行
+    def normalize_config(config):
+        # 分割成行，去除每行首尾空白，移除空行
+        lines = [line.strip() for line in config.splitlines() if line.strip()]
+        # 重新组合成字符串
+        return '\n'.join(lines)
+    
+    # 定义默认的validuser ACL配置
+    default_validuser_acl = """ip access-list session validuser
+    network 127.0.0.0 255.0.0.0 any any deny
+    network 169.254.0.0 255.255.0.0 any any deny
+    network 224.0.0.0 240.0.0.0 any any deny
+    host 255.255.255.255 any any deny
+    network 240.0.0.0 240.0.0.0 any any deny
+    any any any permit
+    ipv6 host fe80:: any any deny
+    ipv6 network fc00::/7 any any permit
+    ipv6 network fe80::/64 any any permit
+    ipv6 alias ipv6-reserved-range any any deny
+    ipv6 any any any permit"""
+    
+    # 定义默认的validusereth ACL配置
+    default_validusereth_acl = """ip access-list eth validuserethacl
+    permit any"""
+    
+    # 检查validuser ACL配置
+    validuser_start = content.find('ip access-list session validuser')
+    if validuser_start >= 0:
+        validuser_end = content.find('!', validuser_start)
+        if validuser_end >= 0:
+            actual_acl = content[validuser_start:validuser_end].strip()
+            if normalize_config(actual_acl) != normalize_config(default_validuser_acl):
+                analysis_results.append({
+                    'type': 'warning',
+                    'message': 'Default validuser acl may be changed, Please check.'
+                })
+    
+    # 检查validusereth ACL配置
+    validusereth_start = content.find('ip access-list eth validuserethacl')
+    if validusereth_start >= 0:
+        validusereth_end = content.find('!', validusereth_start)
+        if validusereth_end >= 0:
+            actual_eth_acl = content[validusereth_start:validusereth_end].strip()
+            if normalize_config(actual_eth_acl) != normalize_config(default_validusereth_acl):
+                analysis_results.append({
+                    'type': 'warning',
+                    'message': 'Default validusereth acl may be changed, Please check.'
+                })
+    
+    return analysis_results
 
 @app.route('/')
 def index():
@@ -347,31 +425,51 @@ def upload_file():
         if file.filename != '':
             try:
                 content = file.read().decode('utf-8')
-            except UnicodeDecodeError:
+                logger.info(f'File uploaded: {file.filename}')
+            except UnicodeDecodeError as e:
+                logger.error(f'Error decoding file {file.filename}: {str(e)}')
                 return jsonify({'error': 'Unsupported file format, please upload a text file'})
     
     # Handle pasted text
     elif 'config_text' in request.form:
         content = request.form['config_text']
         if not content.strip():
+            logger.warning('Empty configuration content submitted')
             return jsonify({'error': 'Configuration content cannot be empty'})
+        logger.info('Configuration content pasted')
     
     if not content:
+        logger.warning('No content provided')
         return jsonify({'error': 'Please upload a file or paste configuration content'})
+    
+    # 保存内容到文件
+    saved_filename = save_content(content)
+    if not saved_filename:
+        logger.error('Failed to save content to file')
+    
+    # 增加处理次数
+    increment_counter()
     
     # 读取默认配置文件
     try:
         with open(os.path.join('templates', '812default.log'), 'r', encoding='utf-8') as f:
             default_content = f.read()
+            
+        # 分析配置
+        analysis_results = analyze_config(content)
+            
     except Exception as e:
-        return jsonify({'error': f'Error reading default configuration: {str(e)}'})
+        error_msg = f'Error reading default configuration: {str(e)}'
+        logger.error(error_msg)
+        return jsonify({'error': error_msg})
     
     # 解析配置并渲染结果
     config_structure = parse_config(content)
     return render_template('result.html', 
                          config=config_structure,
                          uploaded_content=content,
-                         default_content=default_content)
+                         default_content=default_content,
+                         analysis_results=analysis_results)
 
 if __name__ == '__main__':
     app.run(debug=True) 
