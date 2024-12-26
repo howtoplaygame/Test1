@@ -3,10 +3,10 @@
 Aruba Configuration Analysis Tool
 Author: Lucas.Mei
 -->
-<html lang="zh">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Aruba配置分析工具</title>
+    <title data-i18n="title">Aruba配置分析工具</title>
     <style>
         .container {
             max-width: 800px;
@@ -84,35 +84,88 @@ Author: Lucas.Mei
             }
             return true;
         }
+
+        // 语言配置
+        const i18n = {
+            'zh': {
+                'title': 'Aruba配置分析工具',
+                'tool_tip': '提示：使用MD上的配置，获取配置前请先输入 "no paging" 命令，再使用 "show running" 获取配置。show running结果可以文本文件方式上传，也可以直接粘贴',
+                'upload_title': '上传配置文件',
+                'file_hint': '支持所有文本文件，最大1MB',
+                'upload_btn': '上传并分析',
+                'paste_title': '粘贴配置内容',
+                'paste_placeholder': '在此粘贴配置内容...',
+                'analyze_btn': '分析配置',
+                'counter_text': '文件处理次数：'
+            },
+            'en': {
+                'title': 'Aruba Configuration Analysis Tool',
+                'tool_tip': 'Note: For MD configuration, please enter "no paging" command first, then use "show running" to get the configuration. The show running result can be uploaded as a text file or pasted directly',
+                'upload_title': 'Upload Configuration File',
+                'file_hint': 'Supports all text files, max size 1MB',
+                'upload_btn': 'Upload and Analyze',
+                'paste_title': 'Paste Configuration Content',
+                'paste_placeholder': 'Paste your configuration content here...',
+                'analyze_btn': 'Analyze Configuration',
+                'counter_text': 'File processing times: '
+            }
+        };
+
+        // 获取浏览器语言
+        function getBrowserLanguage() {
+            const lang = navigator.language || navigator.userLanguage;
+            return lang.startsWith('zh') ? 'zh' : 'en';
+        }
+
+        // 应用语言
+        function applyLanguage() {
+            const lang = getBrowserLanguage();
+            const texts = i18n[lang];
+
+            // 更新所有带data-i18n属性的元素
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (texts[key]) {
+                    if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                        element.placeholder = texts[key];
+                    } else {
+                        element.textContent = texts[key];
+                    }
+                }
+            });
+        }
+
+        // 页面加载完成后应用语言
+        document.addEventListener('DOMContentLoaded', applyLanguage);
     </script>
 </head>
 <body>
     <div class="container">
-        <h1>Aruba AC配置分析工具</h1>
+        <h1 data-i18n="title">Aruba配置分析工具</h1>
         <div class="tips">
-            <p class="tip-text">提示：使用MD上的配置，获取配置前请先输入 "no paging" 命令，再使用 "show running" 获取配置。show running结果可以文本文件方式上传，也可以直接粘贴</p>
+            <p class="tip-text" data-i18n="tool_tip">提示：使用MD上的配置，获取配置前请先输入 "no paging" 命令，再使用 "show running" 获取配置。show running结果可以文本文件方式上传，也可以直接粘贴</p>
         </div>
         <div class="upload-section">
-            <h2>上传配置文件</h2>
+            <h2 data-i18n="upload_title">上传配置文件</h2>
             <form action="/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="config_file" onchange="validateFileSize(this)">
-                <div class="file-hint">Supports all text files, max size 1MB</div>
-                <button type="submit" class="submit-btn">Upload and Analyze</button>
+                <div class="file-hint" data-i18n="file_hint">支持所有文本文件，最大1MB</div>
+                <button type="submit" class="submit-btn" data-i18n="upload_btn">上传并分析</button>
             </form>
         </div>
 
         <div class="or-divider">- OR -</div>
 
         <div class="paste-section">
-            <div class="section-title">Option 2: Paste Configuration Content(show running result)</div>
+            <h2 data-i18n="paste_title">粘贴配置内容</h2>
             <form action="/upload" method="post">
-                <textarea name="config_text" placeholder="Paste your configuration content here..."></textarea>
-                <button type="submit" class="submit-btn">Analyze Configuration</button>
+                <textarea name="config_text" data-i18n="paste_placeholder" placeholder="在此粘贴配置内容..."></textarea>
+                <button type="submit" class="submit-btn" data-i18n="analyze_btn">分析配置</button>
             </form>
         </div>
 
         <div class="counter">
-            File processing times: {{ counter }}
+            <span data-i18n="counter_text">文件处理次数：</span>{{ counter }}
         </div>
     </div>
 </body>

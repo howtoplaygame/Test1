@@ -3,10 +3,10 @@
 Aruba Configuration Analysis Tool
 Author: Lucas.Mei
 -->
-<html lang="zh">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>配置分析结果</title>
+    <title data-i18n="title">配置分析结果</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/merge/merge.min.css">
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/editor/editor.main.css">
@@ -217,7 +217,60 @@ Author: Lucas.Mei
             element.classList.toggle('collapsed');
             content.classList.toggle('collapsed');
         }
+
+        // 语言配置
+        const i18n = {
+            'zh': {
+                'title': '配置分析结果',
+                'page_title': 'Aruba AC配置分析结果',
+                'other_config': '其他配置：',
+                'diff_title': '配置差异比较',
+                'ai_title': 'AI 智能提示',
+                'no_issues': '未发现配置问题',
+                'uploaded_content': '上传内容',
+                'default_config': '默认配置',
+                'search_left': '搜索左侧内容',
+                'search_right': '搜索右侧内容'
+            },
+            'en': {
+                'title': 'Configuration Analysis Result',
+                'page_title': 'Aruba AC Configuration Analysis Result',
+                'other_config': 'Other Configurations:',
+                'diff_title': 'Configuration Comparison',
+                'ai_title': 'AI Smart Tips',
+                'no_issues': 'No configuration issues found',
+                'uploaded_content': 'Uploaded Content',
+                'default_config': 'Default Configuration',
+                'search_left': 'Search Left Content',
+                'search_right': 'Search Right Content'
+            }
+        };
+
+        // 获取浏览器语言
+        function getBrowserLanguage() {
+            const lang = navigator.language || navigator.userLanguage;
+            return lang.startsWith('zh') ? 'zh' : 'en';
+        }
+
+        // 应用语言
+        function applyLanguage() {
+            const lang = getBrowserLanguage();
+            const texts = i18n[lang];
+
+            // 更新所有带data-i18n属性的元素
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (texts[key]) {
+                    element.textContent = texts[key];
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            // 应用语言
+            applyLanguage();
+            
+            // Monaco编辑器初始化代码
             require(['vs/editor/editor.main'], function() {
                 var diffEditor = monaco.editor.createDiffEditor(document.getElementById('monaco-diff-editor'), {
                     automaticLayout: true,
@@ -243,18 +296,21 @@ Author: Lucas.Mei
                 titles.className = 'editor-titles';
                 titles.innerHTML = `
                     <div class="title-section">
-                        <div class="editor-title">上传内容</div>
-                        <button class="search-btn" onclick="triggerSearch('left')">搜索左侧内容</button>
+                        <div class="editor-title" data-i18n="uploaded_content">上传内容</div>
+                        <button class="search-btn" onclick="triggerSearch('left')" data-i18n="search_left">搜索左侧内容</button>
                     </div>
                     <div class="title-section">
-                        <div class="editor-title">默认配置</div>
-                        <button class="search-btn" onclick="triggerSearch('right')">搜索右侧内容</button>
+                        <div class="editor-title" data-i18n="default_config">默认配置</div>
+                        <button class="search-btn" onclick="triggerSearch('right')" data-i18n="search_right">搜索右侧内容</button>
                     </div>
                 `;
                 container.parentNode.insertBefore(titles, container);
 
                 // 保存编辑器实例供搜索功能使用
                 window.diffEditor = diffEditor;
+                
+                // 重新应用语言（因为动态添加了新元素）
+                applyLanguage();
             });
         });
 
@@ -272,7 +328,7 @@ Author: Lucas.Mei
 </head>
 <body>
     <div class="container">
-        <h2>Aruba AC配置分析结果</h2>
+        <h2 data-i18n="page_title">Aruba AC配置分析结果</h2>
         {% for ap_group, data in config.items() %}
         <div class="ap-group">
             <div class="ap-group-name collapsed" onclick="toggleProfile(this)">AP Group: {{ ap_group }}</div>
@@ -355,7 +411,7 @@ Author: Lucas.Mei
 
                 {% if data.commands %}
                 <div class="profile-type">
-                    <div class="profile-type-name">其他配置:</div>
+                    <div class="profile-type-name" data-i18n="other_config">其他配置：</div>
                     {% for command in data.commands %}
                     <div class="command">{{ command }}</div>
                     {% endfor %}
@@ -366,11 +422,10 @@ Author: Lucas.Mei
         {% endfor %}
     </div>
     <div class="diff-viewer">
-        
-        <h2>配置差异比较</h2>
+        <h2 data-i18n="diff_title">配置差异比较</h2>
         <div class="ai-analysis">
             <div class="analysis-header">
-                <h3>AI 智能提示</h3>
+                <h3 data-i18n="ai_title">AI 智能提示</h3>
                 <div class="analysis-status">
                     <span class="status-badge">Beta</span>
                 </div>
@@ -385,8 +440,8 @@ Author: Lucas.Mei
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <div class="analysis-placeholder">
-                        ��发现配置问题
+                    <div class="analysis-placeholder" data-i18n="no_issues">
+                        未发现配置问题
                     </div>
                 {% endif %}
             </div>
