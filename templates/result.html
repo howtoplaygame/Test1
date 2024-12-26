@@ -278,6 +278,7 @@ Author: Lucas.Mei
             <div class="ap-group-name collapsed" onclick="toggleProfile(this)">AP Group: {{ ap_group }}</div>
             <div class="ap-group-content collapsed">
                 {% for profile_type, profiles in data.profiles.items() %}
+                {% if profile_type != 'ap-system-profile' %}
                 <div class="profile-type">
                     <div class="profile-type-name">{{ profile_type }}:</div>
                     {% for profile_name, profile_data in profiles.items() %}
@@ -333,7 +334,24 @@ Author: Lucas.Mei
                     </div>
                     {% endfor %}
                 </div>
+                {% endif %}
                 {% endfor %}
+
+                {% if 'ap-system-profile' in data.profiles %}
+                <div class="profile-type">
+                    <div class="profile-type-name">ap-system-profile:</div>
+                    {% for profile_name, profile_data in data.profiles['ap-system-profile'].items() %}
+                    <div class="profile">
+                        <div class="profile-name collapsed" onclick="toggleProfile(this)">{{ profile_name }}</div>
+                        <div class="profile-content collapsed">
+                            {% for command in profile_data.commands %}
+                            <div class="command">{{ command }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
 
                 {% if data.commands %}
                 <div class="profile-type">
@@ -368,7 +386,7 @@ Author: Lucas.Mei
                     </ul>
                 {% else %}
                     <div class="analysis-placeholder">
-                        未发现配置问题
+                        ��发现配置问题
                     </div>
                 {% endif %}
             </div>

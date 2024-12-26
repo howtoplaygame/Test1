@@ -44,7 +44,7 @@ def parse_config(config_text):
     current_profile_type = None
     lines = config_text.splitlines()
     
-    # 先解析所有profile配置
+    # 解析所有profile配置
     virtual_ap_configs = {}
     ssid_profile_configs = {}
     aaa_profile_configs = {}
@@ -306,7 +306,14 @@ def parse_config(config_text):
                 current_ap_group = group_name
                 if current_ap_group not in config_dict:
                     config_dict[current_ap_group] = {
-                        'profiles': {},
+                        'profiles': {
+                            # 初始化时就添加默认的system-profile
+                            'ap-system-profile': {
+                                'default': {
+                                    'commands': ap_system_configs.get('default', [])
+                                }
+                            }
+                        },
                         'commands': []
                     }
                 
@@ -316,7 +323,18 @@ def parse_config(config_text):
                     if current_line:
                         is_profile = False
                         # 检查是否是profile引用
-                        if current_line.startswith('virtual-ap'):
+                        if current_line.startswith('ap-system-profile'):
+                            parts = current_line.split('"')
+                            if len(parts) >= 2:
+                                profile_name = parts[1]
+                                # 替换默认的system-profile
+                                config_dict[current_ap_group]['profiles']['ap-system-profile'] = {
+                                    profile_name: {
+                                        'commands': ap_system_configs.get(profile_name, [])
+                                    }
+                                }
+                            is_profile = True
+                        elif current_line.startswith('virtual-ap'):
                             parts = current_line.split('"')
                             if len(parts) >= 2:
                                 profile_name = parts[1]
@@ -363,16 +381,6 @@ def parse_config(config_text):
                                 config_dict[current_ap_group]['profiles']['dot11g-radio-profile'][profile_name] = {
                                     'commands': radio_config.get('commands', []),
                                     'arm_profile': radio_config.get('arm_profile')
-                                }
-                            is_profile = True
-                        elif current_line.startswith('ap-system-profile'):
-                            parts = current_line.split('"')
-                            if len(parts) >= 2:
-                                profile_name = parts[1]
-                                if 'ap-system-profile' not in config_dict[current_ap_group]['profiles']:
-                                    config_dict[current_ap_group]['profiles']['ap-system-profile'] = {}
-                                config_dict[current_ap_group]['profiles']['ap-system-profile'][profile_name] = {
-                                    'commands': ap_system_configs.get(profile_name, [])
                                 }
                             is_profile = True
                         elif current_line.startswith('regulatory-domain-profile'):
@@ -642,11 +650,28 @@ def upload_file():
         file = request.files['config_file']
         if file.filename != '':
             try:
-                content = file.read().decode('utf-8')
+                # 先读取文件内容
+                file_content = file.read()
+                
+                # 尝试不同的编码方式
+                encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin1']
+                for encoding in encodings:
+                    try:
+                        content = file_content.decode(encoding)
+                        logger.info(f'Successfully decoded file using {encoding} encoding')
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                
+                if content is None:
+                    logger.error(f'Failed to decode file {file.filename} with all attempted encodings')
+                    return jsonify({'error': 'Unable to decode file content. Please check file encoding.'})
+                
                 logger.info(f'File uploaded: {file.filename}')
-            except UnicodeDecodeError as e:
-                logger.error(f'Error decoding file {file.filename}: {str(e)}')
-                return jsonify({'error': 'Unsupported file format, please upload a text file'})
+                
+            except Exception as e:
+                logger.error(f'Error processing file {file.filename}: {str(e)}')
+                return jsonify({'error': 'Error processing file, please check the file format'})
     
     # Handle pasted text
     elif 'config_text' in request.form:
@@ -660,7 +685,7 @@ def upload_file():
         logger.warning('No content provided')
         return jsonify({'error': 'Please upload a file or paste configuration content'})
     
-    # 保存内容到文件
+    # 保存��容到文件
     saved_filename = save_content(content)
     if not saved_filename:
         logger.error('Failed to save content to file')
