@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Aruba Configuration Analysis Tool
+Author: Lucas.Mei
+"""
+
 from flask import Flask, render_template, request, jsonify
 import re
 import os
@@ -500,7 +507,7 @@ def analyze_config(content):
                     'message': 'Default validusereth acl may be changed, Please check.'
                 })
     
-    # ���查arp配置
+    # 检查arp配置
     def check_arp_config(text):
         # 在firewall段落中查找arp配置
         firewall_start = text.find('firewall')
