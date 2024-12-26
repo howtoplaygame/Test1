@@ -52,6 +52,22 @@
             font-size: 14px;
             text-align: center;
         }
+        .counter {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .tips {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+        }
+        .tip-text {
+            color: #856404;
+            margin: 0;
+            font-size: 1em;
+        }
     </style>
     <script>
         function validateFileSize(input) {
@@ -68,10 +84,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>Aruba配置分析工具</h1>
-        
+        <h1>Aruba AC配置分析工具</h1>
+        <div class="tips">
+            <p class="tip-text">提示：获取配置前请先输入 "no paging" 命令，再使用 "show running" 获取配置。</p>
+        </div>
         <div class="upload-section">
-            <div class="section-title">Option 1: Upload Configuration File(show running result)</div>
+            <h2>上传配置文件</h2>
             <form action="/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="config_file" onchange="validateFileSize(this)">
                 <div class="file-hint">Supports all text files, max size 1MB</div>
