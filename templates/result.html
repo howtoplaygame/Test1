@@ -77,7 +77,7 @@
         }
         .ap-group-content {
             transition: max-height 0.3s ease-out;
-            max-height: 2000px;
+            max-height: 5000px;
             overflow: hidden;
         }
         .ap-group-content.collapsed {
@@ -306,6 +306,20 @@
                                 {% for command in profile_data.commands %}
                                 <div class="command">{{ command }}</div>
                                 {% endfor %}
+                            {% elif profile_type == 'dot11a-radio-profile' or profile_type == 'dot11g-radio-profile' %}
+                                {% for command in profile_data.commands %}
+                                <div class="command">{{ command }}</div>
+                                {% endfor %}
+                                {% if profile_data.arm_profile %}
+                                <div class="sub-profile">
+                                    <div class="profile-name collapsed" onclick="toggleProfile(this)">arm-profile: {{ profile_data.arm_profile.name }}</div>
+                                    <div class="profile-content collapsed">
+                                        {% for command in profile_data.arm_profile.commands %}
+                                        <div class="command">{{ command }}</div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
                             {% else %}
                                 {% for command in profile_data.commands %}
                                 <div class="command">{{ command }}</div>
@@ -330,6 +344,7 @@
         {% endfor %}
     </div>
     <div class="diff-viewer">
+        
         <h2>配置差异比较</h2>
         <div class="ai-analysis">
             <div class="analysis-header">

@@ -35,6 +35,7 @@ def parse_config(config_text):
     config_dict = {}
     current_ap_group = None
     current_profile_type = None
+    lines = config_text.splitlines()
     
     # 先解析所有profile配置
     virtual_ap_configs = {}
@@ -47,8 +48,117 @@ def parse_config(config_text):
     iot_radio_configs = {}
     dot11_6ghz_configs = {}
     
+    # 先解析所有arm-profile配置
+    arm_profiles = {}
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith('rf arm-profile'):
+            parts = line.split('"')
+            if len(parts) >= 2:
+                profile_name = parts[1]
+                commands = []
+                j = i + 1
+                while j < len(lines) and not lines[j].strip().startswith('!'):
+                    current_line = lines[j].strip()
+                    if current_line:
+                        commands.append(current_line)
+                    j += 1
+                arm_profiles[profile_name] = commands
+                i = j
+        i += 1
+    
+    # 解析dot11a-radio-profile配置
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith('rf dot11a-radio-profile'):
+            parts = line.split('"')
+            if len(parts) >= 2:
+                profile_name = parts[1]
+                commands = []
+                arm_profile_name = None
+                j = i + 1
+                while j < len(lines) and not lines[j].strip().startswith('!'):
+                    current_line = lines[j].strip()
+                    if current_line:
+                        if current_line.startswith('arm-profile'):
+                            arm_parts = current_line.split('"')
+                            if len(arm_parts) >= 2:
+                                arm_profile_name = arm_parts[1]
+                        commands.append(current_line)
+                    j += 1
+                
+                # 创建配置字典
+                profile_config = {
+                    'commands': commands,
+                }
+                
+                # 如果有arm-profile配置，添加到配置中
+                if arm_profile_name and arm_profile_name in arm_profiles:
+                    profile_config['arm_profile'] = {
+                        'name': arm_profile_name,
+                        'commands': arm_profiles[arm_profile_name]
+                    }
+                
+                dot11a_radio_configs[profile_name] = profile_config
+                i = j
+        i += 1
+    
+    # 解析radio profile配置
+    def parse_radio_profile(lines, start_index):
+        profile_name = None
+        commands = []
+        arm_profile_name = None
+        j = start_index + 1
+        
+        parts = lines[start_index].split('"')
+        if len(parts) >= 2:
+            profile_name = parts[1]
+            while j < len(lines) and not lines[j].strip().startswith('!'):
+                current_line = lines[j].strip()
+                if current_line:
+                    if current_line.startswith('arm-profile'):
+                        arm_parts = current_line.split('"')
+                        if len(arm_parts) >= 2:
+                            arm_profile_name = arm_parts[1]
+                    else:  # 只有不是arm-profile行时才添加到commands
+                        commands.append(current_line)
+                j += 1
+        
+        profile_config = {
+            'commands': commands,
+        }
+        
+        if arm_profile_name and arm_profile_name in arm_profiles:
+            profile_config['arm_profile'] = {
+                'name': arm_profile_name,
+                'commands': arm_profiles[arm_profile_name]
+            }
+        
+        return profile_name, profile_config, j
+    
+    # 解析配置
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        if line.startswith('rf dot11a-radio-profile'):
+            profile_name, profile_config, next_i = parse_radio_profile(lines, i)
+            if profile_name:
+                dot11a_radio_configs[profile_name] = profile_config
+            i = next_i
+            
+        elif line.startswith('rf dot11g-radio-profile'):
+            profile_name, profile_config, next_i = parse_radio_profile(lines, i)
+            if profile_name:
+                dot11g_radio_configs[profile_name] = profile_config
+            i = next_i
+            
+        # ... 其他配置解析保持不变 ...
+        i += 1
+
     # 先解析ssid-profile和aaa-profile配置
-    lines = config_text.splitlines()
     i = 0
     while i < len(lines):
         line = lines[i].strip()
@@ -118,32 +228,6 @@ def parse_config(config_text):
                         'commands': aaa_profile_configs.get(aaa_name, [])
                     } if aaa_name else None
                 }
-                i = j
-        elif line.startswith('rf dot11a-radio-profile'):
-            parts = line.split('"')
-            if len(parts) >= 2:
-                profile_name = parts[1]
-                commands = []
-                j = i + 1
-                while j < len(lines) and not lines[j].strip().startswith('!'):
-                    current_line = lines[j].strip()
-                    if current_line:
-                        commands.append(current_line)
-                    j += 1
-                dot11a_radio_configs[profile_name] = commands
-                i = j
-        elif line.startswith('rf dot11g-radio-profile'):
-            parts = line.split('"')
-            if len(parts) >= 2:
-                profile_name = parts[1]
-                commands = []
-                j = i + 1
-                while j < len(lines) and not lines[j].strip().startswith('!'):
-                    current_line = lines[j].strip()
-                    if current_line:
-                        commands.append(current_line)
-                    j += 1
-                dot11g_radio_configs[profile_name] = commands
                 i = j
         elif line.startswith('ap system-profile'):
             parts = line.split('"')
@@ -252,8 +336,12 @@ def parse_config(config_text):
                                 profile_name = parts[1]
                                 if 'dot11a-radio-profile' not in config_dict[current_ap_group]['profiles']:
                                     config_dict[current_ap_group]['profiles']['dot11a-radio-profile'] = {}
+                                
+                                # 从dot11a_radio_configs获取完整配置
+                                radio_config = dot11a_radio_configs.get(profile_name, {})
                                 config_dict[current_ap_group]['profiles']['dot11a-radio-profile'][profile_name] = {
-                                    'commands': dot11a_radio_configs.get(profile_name, [])
+                                    'commands': radio_config.get('commands', []),
+                                    'arm_profile': radio_config.get('arm_profile')
                                 }
                             is_profile = True
                         elif current_line.startswith('dot11g-radio-profile'):
@@ -262,8 +350,12 @@ def parse_config(config_text):
                                 profile_name = parts[1]
                                 if 'dot11g-radio-profile' not in config_dict[current_ap_group]['profiles']:
                                     config_dict[current_ap_group]['profiles']['dot11g-radio-profile'] = {}
+                                
+                                # 从dot11g_radio_configs获取完整配置
+                                radio_config = dot11g_radio_configs.get(profile_name, {})
                                 config_dict[current_ap_group]['profiles']['dot11g-radio-profile'][profile_name] = {
-                                    'commands': dot11g_radio_configs.get(profile_name, [])
+                                    'commands': radio_config.get('commands', []),
+                                    'arm_profile': radio_config.get('arm_profile')
                                 }
                             is_profile = True
                         elif current_line.startswith('ap-system-profile'):
@@ -361,7 +453,7 @@ def analyze_config(content):
     
     # 规范化字符串比较：移除多余空白字符，统一换行
     def normalize_config(config):
-        # 分割成行，去除每行首尾空白，移除空行
+        # 分割行，去除每行首尾空白，移除空行
         lines = [line.strip() for line in config.splitlines() if line.strip()]
         # 重新组合成字符串
         return '\n'.join(lines)
@@ -407,6 +499,125 @@ def analyze_config(content):
                     'type': 'warning',
                     'message': 'Default validusereth acl may be changed, Please check.'
                 })
+    
+    # ���查arp配置
+    def check_arp_config(text):
+        # 在firewall段落中查找arp配置
+        firewall_start = text.find('firewall')
+        if firewall_start >= 0:
+            firewall_end = text.find('!', firewall_start)
+            if firewall_end >= 0:
+                firewall_section = text[firewall_start:firewall_end]
+                # 使用正则表达式检查是否存在arp配置
+                import re
+                arp_pattern = r'attack-rate\s+arp\s+\d+\s+drop'
+                if not re.search(arp_pattern, firewall_section):
+                    return True
+        return False
+    
+    # 检查arp配置
+    if check_arp_config(content):
+        analysis_results.append({
+            'type': 'warning',
+            'message': 'Suggest to control arp with command under firewall "attack-rate arp 50 drop"'
+        })
+    
+    # 检查allow-tri-session配置
+    def check_tri_session_config(text):
+        # 在firewall段落中查找配置
+        firewall_start = text.find('firewall')
+        if firewall_start >= 0:
+            firewall_end = text.find('!', firewall_start)
+            if firewall_end >= 0:
+                firewall_section = text[firewall_start:firewall_end]
+                # 检查是否存在allow-tri-session配置
+                if 'allow-tri-session' not in firewall_section:
+                    return True
+        return False
+    
+    # 检查allow-tri-session配置
+    if check_tri_session_config(content):
+        analysis_results.append({
+            'type': 'warning',
+            'message': 'Suggest to use allow-tri-session under firewall for portal authentication'
+        })
+    
+    # 检查debug日志配置
+    def check_debug_logging(text):
+        # 使用正则表达式检查是否存在debug日志配置
+        import re
+        debug_pattern = r'logging\s+.*\s*debugging\s+'
+        if re.search(debug_pattern, text):
+            return True
+        return False
+    
+    # 检查debug日志配置
+    if check_debug_logging(content):
+        analysis_results.append({
+            'type': 'warning',
+            'message': 'Debug level logging exists, please check.'
+        })
+    
+    # 检查VLAN配置
+    def check_vlan_config(text):
+        import re
+        # 提取所有vlan配置中的vlan-id
+        # 使用更严格的模式匹配：行首可有空格，然后是"vlan"，然后是空格，然后是1-4096的数字，然后是行尾或空格
+        vlan_pattern = r'^\s*vlan\s+(\d+)(?:\s|$)'
+        vlan_ids = []
+        
+        # 逐行检查，确保严格匹配
+        for line in text.splitlines():
+            match = re.match(vlan_pattern, line)
+            if match:
+                vlan_id = int(match.group(1))
+                # 验证vlan-id范围
+                if 1 <= vlan_id <= 4096:
+                    vlan_ids.append(str(vlan_id))
+        
+        # 检查每个vlan-id的interface配置
+        missing_bcmc = []
+        for vlan_id in vlan_ids:
+            # 查找interface vlan配置
+            interface_pattern = f'interface vlan {vlan_id}'
+            interface_start = text.find(interface_pattern)
+            
+            if interface_start < 0:
+                missing_bcmc.append(vlan_id)
+                continue
+                
+            # 查找该interface的配置块结束位置
+            interface_end = text.find('!', interface_start)
+            if interface_end < 0:
+                interface_end = len(text)
+            
+            # 检查配置块中是否有bcmc-optimization
+            interface_config = text[interface_start:interface_end]
+            if 'bcmc-optimization' not in interface_config:
+                missing_bcmc.append(vlan_id)
+        
+        return sorted(missing_bcmc)  # 返回排序后的列表
+    
+    # 检查VLAN配置并生成提示
+    missing_bcmc_vlans = check_vlan_config(content)
+    if missing_bcmc_vlans:
+        vlan_list = ', '.join(missing_bcmc_vlans)
+        analysis_results.append({
+            'type': 'warning',
+            'message': f'VLAN {vlan_list} need to configure bcmc-optimization'
+        })
+    
+    # 检查spanning-tree配置
+    def check_spanning_tree(text):
+        # 检查是否存在no spanning-tree配置
+        return 'no spanning-tree' not in text
+    
+    # 检查spanning-tree配置
+    if check_spanning_tree(content):
+        analysis_results.append({
+            'type': 'warning',
+            'message': 'Spanning tree may be working'
+        })
     
     return analysis_results
 
